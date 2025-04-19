@@ -1,0 +1,276 @@
+📁 Project Structure
+Arduino
+com.example.bank
+│
+├── config/
+│   └── AppConfig.java
+├── entity/
+│   ├── Account.java
+│   └── TransactionLog.java
+├── service/
+│   └── BankService.java
+├── util/
+│   └── HibernateUtil.java
+└── Main.java
+
+
+
+
+
+⚙️ 1. Maven Dependencies
+Same as before, but add Spring TX:
+
+xml
+
+<dependencies>
+    <!-- Spring Core & Context -->
+    <dependency>
+        <groupId>org.springframework</groupId>
+        <artifactId>spring-context</artifactId>
+        <version>5.3.22</version>
+    </dependency>
+
+    <dependency>
+        <groupId>org.springframework</groupId>
+        <artifactId>spring-tx</artifactId>
+        <version>5.3.22</version>
+    </dependency>
+
+    <!-- Hibernate & MySQL -->
+    <dependency>
+        <groupId>org.hibernate</groupId>
+        <artifactId>hibernate-core</artifactId>
+        <version>5.6.15.Final</version>
+    </dependency>
+
+    <dependency>
+        <groupId>mysql</groupId>
+        <artifactId>mysql-connector-java</artifactId>
+        <version>8.0.29</version>
+    </dependency>
+</dependencies>
+
+
+
+
+
+
+
+🗄️ 2. Hibernate Configuration – hibernate.cfg.xml
+Same as in Medium level but update:
+
+xml
+
+
+<mapping class="com.example.bank.entity.Account"/>
+<mapping class="com.example.bank.entity.TransactionLog"/>
+
+
+
+
+
+
+
+💼 3. Entity Classes
+Account.java
+java
+
+package com.example.bank.entity;
+
+import javax.persistence.*;
+
+@Entity
+public class Account {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private int id;
+    private String holderName;
+    private double balance;
+
+    public Account() {}
+    public Account(String holderName, double balance) {
+        this.holderName = holderName;
+        this.balance = balance;
+    }
+
+    // Getters and setters
+    public int getId() { return id; }
+    public String getHolderName() { return holderName; }
+    public void setBalance(double balance) { this.balance = balance; }
+    public double getBalance() { return balance; }
+}
+TransactionLog.java
+java
+Copy code
+package com.example.bank.entity;
+
+import javax.persistence.*;
+import java.util.Date;
+
+@Entity
+public class TransactionLog {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private int id;
+
+    private int fromAccountId;
+    private int toAccountId;
+    private double amount;
+    private Date date;
+
+    public TransactionLog() {}
+
+    public TransactionLog(int fromAccountId, int toAccountId, double amount, Date date) {
+        this.fromAccountId = fromAccountId;
+        this.toAccountId = toAccountId;
+        this.amount = amount;
+        this.date = date;
+    }
+
+    // Getters/setters omitted for brevity
+}
+
+
+
+
+
+
+🧠 4. Hibernate Utility
+HibernateUtil.java
+java
+
+
+package com.example.bank.util;
+
+import org.hibernate.SessionFactory;
+import org.hibernate.cfg.Configuration;
+
+public class HibernateUtil {
+    private static final SessionFactory sessionFactory;
+
+    static {
+        sessionFactory = new Configuration().configure().buildSessionFactory();
+    }
+
+    public static SessionFactory getSessionFactory() {
+        return sessionFactory;
+    }
+}
+
+
+
+
+
+
+
+
+
+⚙️ 5. Spring Configuration
+AppConfig.java
+java
+
+package com.example.bank.config;
+
+import org.springframework.context.annotation.*;
+import org.springframework.orm.hibernate5.HibernateTransactionManager;
+import org.springframework.transaction.annotation.EnableTransactionManagement;
+import com.example.bank.util.HibernateUtil;
+
+@Configuration
+@ComponentScan(basePackages = "com.example.bank")
+@EnableTransactionManagement
+public class AppConfig {
+
+    @Bean
+    public HibernateTransactionManager transactionManager() {
+        return new HibernateTransactionManager(HibernateUtil.getSessionFactory());
+    }
+}
+
+
+
+
+
+🏦 6. BankService.java (Transactional Logic)
+java
+
+package com.example.bank.service;
+
+import com.example.bank.entity.*;
+import com.example.bank.util.HibernateUtil;
+import org.hibernate.Session;
+import org.hibernate.Transaction;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.Date;
+
+@Service
+public class BankService {
+
+    @Transactional
+    public void transfer(int fromId, int toId, double amount) {
+        Session session = HibernateUtil.getSessionFactory().getCurrentSession();
+
+        Account from = session.get(Account.class, fromId);
+        Account to = session.get(Account.class, toId);
+
+        if (from.getBalance() < amount) {
+            throw new RuntimeException("Insufficient balance.");
+        }
+
+        from.setBalance(from.getBalance() - amount);
+        to.setBalance(to.getBalance() + amount);
+
+        session.update(from);
+        session.update(to);
+
+        TransactionLog log = new TransactionLog(fromId, toId, amount, new Date());
+        session.save(log);
+
+        // Uncomment to simulate failure and check rollback:
+        // throw new RuntimeException("Simulated failure");
+    }
+}
+
+
+
+
+
+🚀 7. Main.java – Execution
+java
+
+package com.example.bank;
+
+import com.example.bank.config.AppConfig;
+import com.example.bank.entity.Account;
+import com.example.bank.service.BankService;
+import com.example.bank.util.HibernateUtil;
+import org.hibernate.Session;
+import org.hibernate.Transaction;
+import org.springframework.context.annotation.AnnotationConfigApplicationContext;
+
+public class Main {
+    public static void main(String[] args) {
+        var context = new AnnotationConfigApplicationContext(AppConfig.class);
+        var bankService = context.getBean(BankService.class);
+
+        // Initial account creation
+        Session session = HibernateUtil.getSessionFactory().openSession();
+        Transaction tx = session.beginTransaction();
+        Account a1 = new Account("Alice", 1000);
+        Account a2 = new Account("Bob", 500);
+        session.save(a1);
+        session.save(a2);
+        tx.commit();
+        session.close();
+
+        // Transfer money
+        try {
+            bankService.transfer(a1.getId(), a2.getId(), 300);
+            System.out.println("Transaction successful");
+        } catch (Exception e) {
+            System.out.println("Transaction failed: " + e.getMessage());
+        }
+    }
+}

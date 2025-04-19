@@ -1,0 +1,167 @@
+🌐 1. MySQL Setup
+Create a database in MySQL:
+
+sql
+
+CREATE DATABASE studentdb;
+
+
+
+📄 2. Maven Dependencies (pom.xml)
+xml
+
+<dependencies>
+    <!-- Hibernate Core -->
+    <dependency>
+        <groupId>org.hibernate</groupId>
+        <artifactId>hibernate-core</artifactId>
+        <version>5.6.15.Final</version>
+    </dependency>
+
+    <!-- MySQL JDBC Driver -->
+    <dependency>
+        <groupId>mysql</groupId>
+        <artifactId>mysql-connector-java</artifactId>
+        <version>8.0.29</version>
+    </dependency>
+</dependencies>
+
+
+
+
+⚙️ 3. Hibernate Configuration (hibernate.cfg.xml)
+Place this file in src/main/resources:
+
+xml
+
+<!DOCTYPE hibernate-configuration PUBLIC 
+"-//Hibernate/Hibernate Configuration DTD 3.0//EN"
+"http://www.hibernate.org/dtd/hibernate-configuration-3.0.dtd">
+<hibernate-configuration>
+    <session-factory>
+        <property name="hibernate.connection.driver_class">com.mysql.cj.jdbc.Driver</property>
+        <property name="hibernate.connection.url">jdbc:mysql://localhost:3306/studentdb</property>
+        <property name="hibernate.connection.username">root</property>
+        <property name="hibernate.connection.password">your_password</property>
+        <property name="hibernate.dialect">org.hibernate.dialect.MySQL8Dialect</property>
+        <property name="hibernate.hbm2ddl.auto">update</property>
+        <property name="show_sql">true</property>
+
+        <mapping class="com.example.Student"/>
+    </session-factory>
+</hibernate-configuration>
+
+
+
+
+
+
+📦 4. Entity Class – Student.java
+java
+
+package com.example;
+
+import javax.persistence.*;
+
+@Entity
+@Table(name = "students")
+public class Student {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private int id;
+
+    private String name;
+    private int age;
+
+    public Student() {}
+
+    public Student(String name, int age) {
+        this.name = name;
+        this.age = age;
+    }
+
+    // Getters & Setters
+    public int getId() { return id; }
+    public String getName() { return name; }
+    public int getAge() { return age; }
+    public void setName(String name) { this.name = name; }
+    public void setAge(int age) { this.age = age; }
+
+    @Override
+    public String toString() {
+        return "Student{" + "id=" + id + ", name='" + name + '\'' + ", age=" + age + '}';
+    }
+}
+
+
+
+
+
+🏭 5. Hibernate Utility Class – HibernateUtil.java
+java
+
+package com.example;
+
+import org.hibernate.SessionFactory;
+import org.hibernate.cfg.Configuration;
+
+public class HibernateUtil {
+    private static final SessionFactory sessionFactory;
+
+    static {
+        try {
+            sessionFactory = new Configuration().configure().buildSessionFactory();
+        } catch (Throwable ex) {
+            throw new ExceptionInInitializerError(ex);
+        }
+    }
+
+    public static SessionFactory getSessionFactory() {
+        return sessionFactory;
+    }
+}
+
+
+
+
+
+
+
+🚀 6. CRUD Operation – Main.java
+java
+
+package com.example;
+
+import org.hibernate.Session;
+import org.hibernate.Transaction;
+
+public class Main {
+    public static void main(String[] args) {
+        Session session = HibernateUtil.getSessionFactory().openSession();
+
+        // Create
+        Transaction tx1 = session.beginTransaction();
+        Student s1 = new Student("John Doe", 20);
+        session.save(s1);
+        tx1.commit();
+
+        // Read
+        Student retrieved = session.get(Student.class, s1.getId());
+        System.out.println("Read: " + retrieved);
+
+        // Update
+        Transaction tx2 = session.beginTransaction();
+        retrieved.setAge(21);
+        session.update(retrieved);
+        tx2.commit();
+
+        // Delete
+        Transaction tx3 = session.beginTransaction();
+        session.delete(retrieved);
+        tx3.commit();
+
+        session.close();
+        HibernateUtil.getSessionFactory().close();
+    }
+}

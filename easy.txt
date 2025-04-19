@@ -1,0 +1,104 @@
+1. Maven Dependencies (in pom.xml)
+
+
+
+
+xml
+
+<dependencies>
+    <dependency>
+        <groupId>org.springframework</groupId>
+        <artifactId>spring-context</artifactId>
+        <version>5.3.22</version>
+    </dependency>
+</dependencies>
+
+
+
+
+
+2. Course.java
+java
+
+public class Course {
+    private String courseName;
+    private int duration;
+
+    public Course(String courseName, int duration) {
+        this.courseName = courseName;
+        this.duration = duration;
+    }
+
+    public String getCourseName() {
+        return courseName;
+    }
+
+    public int getDuration() {
+        return duration;
+    }
+}
+
+
+
+3. Student.java
+java
+
+public class Student {
+    private String name;
+    private Course course;
+
+    public Student(String name, Course course) {
+        this.name = name;
+        this.course = course;
+    }
+
+    public void displayDetails() {
+        System.out.println("Student Name: " + name);
+        System.out.println("Course: " + course.getCourseName());
+        System.out.println("Duration: " + course.getDuration() + " months");
+    }
+}
+
+
+
+
+4. AppConfig.java
+java
+
+
+
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+
+@Configuration
+public class AppConfig {
+    
+    @Bean
+    public Course course() {
+        return new Course("Java Full Stack", 6);
+    }
+
+    @Bean
+    public Student student() {
+        return new Student("Alice", course());
+    }
+}
+
+
+
+
+
+
+5. Main.java
+java
+
+import org.springframework.context.ApplicationContext;
+import org.springframework.context.annotation.AnnotationConfigApplicationContext;
+
+public class Main {
+    public static void main(String[] args) {
+        ApplicationContext context = new AnnotationConfigApplicationContext(AppConfig.class);
+        Student student = context.getBean(Student.class);
+        student.displayDetails();
+    }
+}
